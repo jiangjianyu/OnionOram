@@ -18,4 +18,5 @@ OramBucketStorage::OramBucketStorage(int bucket, int mem_max) {
 	}
 	mem_count = 0;
 	this->mem_max = mem_max;
+	this->cnt_0 = 0;
 }

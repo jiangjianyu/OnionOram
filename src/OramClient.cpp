@@ -69,26 +69,34 @@ int OramClient::access(int address, OramAccessOp op, unsigned char data[]) {
 	int pos_new = OramCrypto::get_random(tree_leaf_count) + tree_leaf_start;
 	position_map[address] = pos_new;
 	unsigned char data_read[OramBlock::block_size];
-	if (read_path(pos, address, data_read) < 0)
+	OramMeta *root_meta = new OramMeta();
+	if (read_path(pos, address, data_read, root_meta) < 0)
 		return -1;
 	if (op == ORAM_ACCESS_READ)
 		memcpy(data, data_read, OramBlock::block_size);
 	else if (op == ORAM_ACCESS_WRITE)
 		memcpy(data_read, data, OramBlock::block_size);
 	OramBlock *return_block = new OramBlock(data_read);
-	write_back(return_block);
+	write_back(return_block, root_meta, address);
 	evict();
 	return 1;
 }
 
-int OramClient::write_back(OramBlock *block) {
+int OramClient::write_back(OramBlock *block, OramMeta *root_meta, int address) {
 	memcpy(sock->get_send_buf(), block->to_bytes(), block->size());
+
+	for (int i = 0;i < OramBucket::bucket_size;i++) {
+		if (root_meta->address[i] == address)
+			root_meta->address[i] = -1;
+	}
+	root_meta->address[cnt] = address;
+	OramCrypto::get_crypto()->encrypt_meta(*root_meta, (unsigned char *)sock->get_send_buf() + block->size());
 	sock->get_send_header()->socket_type = ORAM_SOCKET_WRITEBLOCK;
 	sock->get_send_header()->pos_id = cnt;
 	sock->get_send_header()->len = 1;
 	sock->get_send_header()->layer = 1;
-	sock->get_send_header()->msg_len = block->size();
-	sock->standard_send(ORAM_SOCKET_HEADER_SIZE + block->size());
+	sock->get_send_header()->msg_len = block->size() + sizeof_read_meta(OramBucket::bucket_size);
+	sock->standard_send(ORAM_SOCKET_HEADER_SIZE + block->size() + sizeof_read_meta(OramBucket::bucket_size));
 	return 1;
 }
 
@@ -110,7 +118,6 @@ OramMeta** OramClient::get_metadata(int pos, int layer_list[], bool layer_all) {
 	else
 		sock->get_send_header()->len = -1;
 	sock->standard_send(ORAM_SOCKET_HEADER_SIZE);
-
 	sock->standard_recv(ORAM_SOCKET_HEADER_SIZE);
 	int len = sock->get_recv_header()->len;
 	int layer = sock->get_recv_header()->layer;
@@ -213,10 +220,12 @@ int OramClient::evict_along_path(int pos) {
 	return 1;
 }
 
-int OramClient::read_path(int pos, int address, unsigned char data[]) {
+int OramClient::read_path(int pos, int address, unsigned char data[], OramMeta *root_meta) {
 	int select_id = -1;
 	int len;
 	int max_layer;
+	root_meta->size = OramBucket::bucket_size;
+	root_meta->address = new int[OramBucket::bucket_size];
 	OramMeta **meta = get_metadata(pos, &max_layer, false);
 	for (int pos_run = pos, i = 0;;pos_run = (pos_run - 1) >> 1, i++) {
 		for (int j = 0; j < OramBucket::bucket_size; j++) {
@@ -224,6 +233,7 @@ int OramClient::read_path(int pos, int address, unsigned char data[]) {
 				select_id = i * OramBucket::bucket_size + j;
 		}
 		if (pos_run == 0) {
+			memcpy(root_meta->address, meta[i]->address, sizeof(int) * OramBucket::bucket_size);
 			len = i + 1;
 			break;
 		}
@@ -244,12 +254,12 @@ int OramClient::read_path(int pos, int address, unsigned char data[]) {
 
 	int block_cipher_size = OramCrypto::get_crypto()->get_chunk_size(max_layer + 1)*OramBlock::chunk_count;
 	sock->standard_recv(ORAM_SOCKET_HEADER_SIZE + block_cipher_size);
-	OramBlock *recv_block = new OramBlock(sock->get_recv_buf(), max_layer + 1);
-	unsigned char *recv_data = (unsigned char *)recv_block->decrypt();
 	if (select_id != -1) {
-
+		OramBlock *recv_block = new OramBlock(sock->get_recv_buf(), max_layer + 1);
+		unsigned char *recv_data = (unsigned char *)recv_block->decrypt();
 		memcpy(data, recv_data, OramBlock::block_size);
 	} else {
+		//If no blocks are found, then create one
 		memset(data, 0, OramBlock::block_size);
 	}
 	return 0;
@@ -268,8 +278,10 @@ int OramClient::init() {
 	init_header->s0 = OramCrypto::get_crypto()->s0;
 	init_header->s_max = 50;
 	void *tem = OramCrypto::get_crypto()->ahe_sys->export_pubkey(&init_header->key_len);
+	void *tem_pvk = OramCrypto::get_crypto()->ahe_sys->export_prvkey(&init_header->pvk_len);
 	memcpy(sock->get_send_buf() + sizeof(OramSocketInit), tem, init_header->key_len);
-	last_pos = ORAM_SOCKET_INIT_SIZE(init_header->key_len);
+	memcpy(sock->get_send_buf() + sizeof(OramSocketInit) + init_header->key_len, tem_pvk, init_header->pvk_len);
+	last_pos = ORAM_SOCKET_INIT_SIZE(init_header->key_len + init_header->pvk_len);
 
 	OramMeta meta_blank;
 	meta_blank.address = new int[OramBucket::bucket_size];

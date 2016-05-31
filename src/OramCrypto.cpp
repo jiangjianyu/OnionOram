@@ -1,5 +1,6 @@
 #include <cstring>
 #include "OramCrypto.h"
+#include "OramLogger.h"
 
 OramCrypto* OramCrypto::crypto = NULL;
 
@@ -7,8 +8,8 @@ void OramCrypto::init_crypto(void *key, int key_len, int s0, int s_max, int bits
 	OramCrypto::crypto = new OramCrypto(key, key_len, s0, s_max, bits);
 }
 
-void OramCrypto::init_crypto(int s0, int s_max, int bits, void *buf, size_t len) {
-	OramCrypto::crypto = new OramCrypto(s0, s_max, bits, buf, len);
+void OramCrypto::init_crypto(int s0, int s_max, int bits, void *buf, size_t len, void *pvk_buf, size_t pvk_len) {
+	OramCrypto::crypto = new OramCrypto(s0, s_max, bits, buf, len, pvk_buf, pvk_len);
 }
 
 OramCrypto* OramCrypto::get_crypto() {
@@ -24,8 +25,8 @@ OramCrypto::~OramCrypto()
 {
 }
 
-OramCrypto::OramCrypto(int s0, int max_s, int bitmo, void *buf, size_t len) {
-	ahe_sys = new damgard_jurik(max_s, bitmo, randombytes_buf, buf, len);
+OramCrypto::OramCrypto(int s0, int max_s, int bitmo, void *buf, size_t len, void *pvk_buf, size_t pvk_len) {
+	ahe_sys = new damgard_jurik(max_s, bitmo, randombytes_buf, buf, len, pvk_buf, pvk_len);
 	this->s0 = s0;
 	this->bits = bitmo;
 }
@@ -57,8 +58,10 @@ OramMeta* OramCrypto::decrypt_meta(void *buf, int size) {
 	if (crypto_secretbox_open_easy((unsigned char *)meta->address,
 		buf_c + ORAM_CRYPT_NONCE_LEN,
 		sizeof(int) * size + ORAM_CRYPT_OVERHEAD,
-		buf_c, sodium_key) != 0)
+		buf_c, sodium_key) != 0) {
+		log_sys << "Decrypting metadata error\n";
 		return NULL;
+	}
 	return meta;
 }
 

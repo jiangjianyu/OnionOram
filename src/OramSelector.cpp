@@ -46,7 +46,7 @@ OramSelector::OramSelector(int size, void *buf, int layer) {
 	for (int i = 0; i < size; i++) {
 		select_vector[i] = new damgard_jurik_ciphertext_t((unsigned char *)buf + i*per_size, per_size);
 		select_vector[i]->s = s;
-		mpz_set(select_vector[i]->n_s, *OramCrypto::get_crypto()->ahe_sys->get_ns(s));
+		mpz_set(select_vector[i]->n_s, *OramCrypto::get_crypto()->ahe_sys->get_ns(s + 1));
 	}
 	this->size = size;
 	this->layer = layer;

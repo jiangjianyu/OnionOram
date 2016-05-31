@@ -27,13 +27,13 @@ public:
 
 	int access(int address, OramAccessOp op, unsigned char data[]);
 
-	int read_path(int pos, int address, unsigned char data[]);
+	int read_path(int pos, int address, unsigned char data[], OramMeta *root_meta);
 
 	int evict();
 
 	int evict_along_path(int pos);
 
-	int write_back(OramBlock *block);
+	int write_back(OramBlock *block, OramMeta *root_meta, int addresss);
 
 	int init();
 };

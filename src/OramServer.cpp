@@ -27,7 +27,8 @@ void OramServer::run() {
 	while(running) {
 		OramSocket *sock_client = sock->accept_connection();
 		while (running) {
-			sock_client->standard_recv(ORAM_SOCKET_HEADER_SIZE);
+			if (sock_client->standard_recv(ORAM_SOCKET_HEADER_SIZE) < 0)
+				break;
 			log_sys << "New Request"<< std::endl;
 			sock_client->recv_continue(sock_client->get_recv_header()->msg_len);
 			switch (sock_client->get_recv_header()->socket_type) {
@@ -48,6 +49,10 @@ void OramServer::run() {
 					break;
 				case ORAM_SOCKET_INIT:
 					r_init(sock_client);
+					break;
+				case ORAM_SOCKET_WRITEBLOCK:
+					r_write_block(sock);
+					break;
 				default:
 					break;
 			}
@@ -121,8 +126,9 @@ void OramServer::r_init(OramSocket *sock) {
 	OramBlock::init_size(init->chunk_size, init->block_size);
 	OramCrypto::init_crypto(init->s0, init->s_max, init->bits,
 							sock->get_recv_buf() + sizeof(OramSocketInit),
-							init->key_len);
-	int pos_start = ORAM_SOCKET_INIT_SIZE(init->key_len);
+							init->key_len, sock->get_recv_buf() + ORAM_SOCKET_INIT_SIZE(init->key_len),
+							init->pvk_len);
+	int pos_start = ORAM_SOCKET_INIT_SIZE(init->key_len + init->pvk_len);
 	storage = new OramBucketStorage(init->bucket_count, init->mem_max);
 	//Init Meta
 	for (int i = 0;i < init->bucket_count;i++) {
@@ -130,6 +136,7 @@ void OramServer::r_init(OramSocket *sock) {
 			   sock->get_recv_buf() + pos_start + i*sizeof_read_meta(OramBucket::bucket_size),
 			   sizeof_read_meta(OramBucket::bucket_size));
 	}
+	log_sys << "Server Init Finished\n";
 }
 
 void OramServer::r_read_block(OramSocket *sock) {
@@ -209,10 +216,14 @@ void OramServer::r_evict_path(OramSocket* sock) {
 			   sock->get_recv_buf() + last + i * sizeof_read_meta(OramBucket::bucket_size),
 			   OramBucket::bucket_size);
 	}
+	storage->cnt_0 = 0;
 }
 
 void OramServer::r_write_block(OramSocket* sock) {
 	log_detail << "REQUEST >> WRITEBACK" << std::endl;
 	OramBlock *new_block = new OramBlock(sock->get_recv_buf(), 1);
 	storage->get_bucket(0)->bucket[storage->cnt_0++] = new_block;
+	memcpy(storage->get_bucket(0)->encrypt_matadata,
+		   sock->get_recv_buf() + new_block->size(),
+		   sizeof(int) * OramBucket::bucket_size);
 }

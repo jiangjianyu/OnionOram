@@ -37,8 +37,8 @@ typedef struct OramSocketInit{
 	int s0;
 	int s_max;
 	int bits;
-	unsigned char* key[]; /* Serialized OramCrypto data */
 	size_t key_len;
+	size_t pvk_len;
 } OramSocketInit;
 
 #define ORAM_SOCKET_HEADER_SIZE sizeof(OramSocketHeader)

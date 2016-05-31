@@ -16,7 +16,7 @@ int main(int argc, char **args) {
         server.run();
     } else if (!strcmp(args[1], "client")) {
         log_sys << "Client Starting" << std::endl;
-        OramClient client = OramClient("127.0.0.1", 30001, 32, 5, 10240, 1024, "ORAM", 4, 8, 1024);
+        OramClient client = OramClient("127.0.0.1", 30001, 32, 5, 10240, 1024, "ORAM", 4, 9, 1024);
         client.init();
         unsigned char data[10240];
         client.access(1, ORAM_ACCESS_WRITE, data);

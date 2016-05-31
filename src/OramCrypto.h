@@ -15,7 +15,7 @@ public:
 	static OramCrypto* get_crypto();
 	static void init_crypto(void *key, int key_len, 
 		int s0, int s_max, int bits);
-	static void init_crypto(int s0, int s_max, int bits, void *buf, size_t len);
+	static void init_crypto(int s0, int s_max, int bits, void *buf, size_t len, void *pvk_buf, size_t pvk_len);
 	static int get_random(int range);
 
 	unsigned char sodium_key[ORAM_CRYPT_KEY_LEN];
@@ -28,7 +28,7 @@ public:
 	OramMeta* decrypt_meta(void *buf, int size);
 	int get_chunk_size(int layer);
 	OramCrypto();
-	OramCrypto(int s0, int max_s, int bitmo, void *buf, size_t len);
+	OramCrypto(int s0, int max_s, int bitmo, void *buf, size_t len, void *pvk_buf, size_t pvk_len);
 	OramCrypto(void *key, int key_len, int s0, int max_s, int bitmo);
 	~OramCrypto();
 };

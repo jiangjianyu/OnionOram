@@ -134,6 +134,7 @@ int OramSocket::standard_recv(size_t len) {
 			return -1;
 		}
 		else if (r == 0) {
+			log_sys << "connection disconnected\n";
 			return -1;
 		}
 		total += r;

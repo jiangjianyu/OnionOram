@@ -49,7 +49,12 @@ public:
 
     void* export_pubkey(size_t *len);
 
+    void* export_prvkey(size_t *len);
+
     damgard_jurik(unsigned long s, int bitsmodule, damgard_jurik_get_rand_t rand_func, void *buf, size_t len);
+
+    damgard_jurik(unsigned long s, int bitsmodule, damgard_jurik_get_rand_t rand_func, void *buf, size_t len,
+                  void *buf_pvk, size_t len_pvk);
 
     damgard_jurik(unsigned long s, int bitsmodule, damgard_jurik_get_rand_t rand_func);
 

@@ -5,6 +5,7 @@
 #include <cstdlib>
 #include <cstring>
 #include "damgard_jurik.h"
+#include "OramLogger.h"
 
 damgard_jurik_text_t::damgard_jurik_text_t(mpz_t text) {
     mpz_init(this->text);
@@ -60,8 +61,9 @@ void* damgard_jurik_text_t::to_bytes(size_t len) {
     if (written == len)
         return buf;
     if (written > len)
-        return NULL;
-    memcpy((unsigned char *)buf_1 + (len - written), buf, written);
+        memcpy(buf_1, buf + written - len, len);
+    else
+        memcpy((unsigned char *)buf_1 + (len - written), buf, written);
     free(buf);
     return buf_1;
 }
@@ -173,6 +175,14 @@ void* damgard_jurik::export_pubkey(size_t *len) {
     return buff;
 }
 
+void* damgard_jurik::export_prvkey(size_t *len) {
+    void *buff;
+    size_t written;
+    buff = mpz_export(NULL, &written, 1, 1, 0, 0, prvkey->lambda);
+    *len = written;
+    return buff;
+}
+
 damgard_jurik::damgard_jurik(unsigned long s, int bitsmodule, damgard_jurik_get_rand_t rand_func, void *buf, size_t len) {
     pubkey = new damgard_jurik_pubkey_t();
     prvkey = NULL;
@@ -201,6 +211,38 @@ damgard_jurik::damgard_jurik(unsigned long s, int bitsmodule, damgard_jurik_get_
 
 }
 
+damgard_jurik::damgard_jurik(unsigned long s, int bitsmodule, damgard_jurik_get_rand_t rand_func,
+                                    void *buf, size_t len, void* pvk_buf, size_t pvk_len) {
+    pubkey = new damgard_jurik_pubkey_t();
+    prvkey = new damgard_jurik_prvkey_t();
+    this->s_max = s;
+    this->rand_func = rand_func;
+
+    mpz_init(pubkey->n);
+    mpz_init(pubkey->g);
+    mpz_import(pubkey->n, len, 1, 1, 0, 0, buf);
+
+    pubkey->bits = bitsmodule;
+
+    mpz_add_ui(pubkey->g, pubkey->n, 1);
+    pubkey->n_j = new mpz_t[s_max + 2];
+    pubkey->k_n = new mpz_t[s_max + 2];
+    mpz_init(pubkey->n_j[0]);
+    mpz_set_ui(pubkey->n_j[0], 1);
+    mpz_init(pubkey->k_n[0]);
+    mpz_set_ui(pubkey->k_n[0], 1);
+    for (int i = 1;i <= s_max + 1;i++) {
+        mpz_init(pubkey->n_j[i]);
+        mpz_mul(pubkey->n_j[i], pubkey->n_j[i - 1], pubkey->n);
+        mpz_init(pubkey->k_n[i]);
+        mpz_mul_ui(pubkey->k_n[i], pubkey->k_n[i - 1], i);
+    }
+
+    mpz_init(prvkey->lambda);
+    mpz_import(prvkey->lambda, pvk_len, 1, 1, 0, 0, pvk_buf);
+
+}
+
 damgard_jurik::damgard_jurik(unsigned long s, int bitsmodule, damgard_jurik_get_rand_t rand_func) {
     pubkey = new damgard_jurik_pubkey_t();
     prvkey = new damgard_jurik_prvkey_t();
@@ -213,15 +255,17 @@ damgard_jurik_ciphertext_t* damgard_jurik::encrypt(damgard_jurik_plaintext_t* pt
     mpz_t r;
     gmp_randstate_t rand;
     mpz_t x;
+    mpz_t gc;
     damgard_jurik_ciphertext_t *res = new damgard_jurik_ciphertext_t();
     /* pick random blinding factor */
 
     mpz_init(r);
-
+    mpz_init(gc);
     init_rand(rand, pubkey->bits / 8 + 1);
-    do
+    do {
         mpz_urandomb(r, rand, pubkey->bits);
-    while( mpz_cmp(r, pubkey->n) >= 0 );
+        mpz_gcd(gc, r, pubkey->n);
+    }while( mpz_cmp(r, pubkey->n) >= 0 || mpz_cmp_ui(gc, 1) > 0 || mpz_cmp_ui(r, 0) == 0);
 
     mpz_init(x);
     mpz_powm(res->text, pubkey->g, pt->text, pubkey->n_j[s + 1]);
@@ -244,14 +288,17 @@ void damgard_jurik::encrypt(damgard_jurik_ciphertext_t **list, damgard_jurik_pla
 	mpz_t r;
 	gmp_randstate_t rand;
 	mpz_t x;
+    mpz_t gc;
 	/* pick random blinding factor */
 
 	mpz_init(r);
+    mpz_init(gc);
 
 	init_rand(rand, pubkey->bits / 8 + 1);
-	do
-		mpz_urandomb(r, rand, pubkey->bits);
-	while (mpz_cmp(r, pubkey->n) >= 0);
+	do {
+        mpz_urandomb(r, rand, pubkey->bits);
+        mpz_gcd(gc, r, pubkey->n);
+    }while (mpz_cmp(r, pubkey->n) >= 0 || mpz_cmp_ui(gc, 1) > 0 || mpz_cmp_ui(r, 0) == 0);
 
 	mpz_init(x);
 	mpz_powm(x, r, pubkey->n_j[s], pubkey->n_j[s + 1]);

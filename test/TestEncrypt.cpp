@@ -18,16 +18,15 @@ int main (int argc, char **args) {
     damgard_jurik dj_dum = damgard_jurik(50, 1024, randombytes_buf, bb, len);
     damgard_jurik_plaintext_t text_1 = damgard_jurik_plaintext_t("abc");
     damgard_jurik_plaintext_t text_2 = damgard_jurik_plaintext_t("efg");
-    damgard_jurik_ciphertext_t *text_1_c = dj.encrypt(&text_1, 9);
-    damgard_jurik_ciphertext_t *text_2_c = dj.encrypt(&text_2, 9);
+    damgard_jurik_ciphertext_t *text_1_c = dj.encrypt(&text_1, 8);
+    damgard_jurik_ciphertext_t *text_2_c = dj.encrypt(&text_2, 8);
 //    damgard_jurik_plaintext_t text_3 = damgard_jurik_plaintext_t(buf, 1024);
     damgard_jurik_plaintext_t sec_1 = damgard_jurik_plaintext_t((unsigned long)0);
-    damgard_jurik_plaintext_t sec_2 = damgard_jurik_plaintext_t((unsigned long)1);
-    damgard_jurik_ciphertext_t *c_1 = dj_dum.encrypt(&sec_1, 10);
-    damgard_jurik_ciphertext_t *c_22 = dj_dum.encrypt(&sec_2, 10);
+    damgard_jurik_plaintext_t sec_2 = damgard_jurik_plaintext_t((unsigned long)0);
+    damgard_jurik_ciphertext_t *c_1 = dj_dum.encrypt(&sec_1, 9);
+    damgard_jurik_ciphertext_t *c_22 = dj_dum.encrypt(&sec_2, 9);
 //    damgard_jurik_ciphertext_t *c_4 = dj.encrypt(&text_3, 10);
     damgard_jurik_ciphertext_t c_3 = (*c_1^text_1) * (*c_22^text_2);
-    damgard_jurik_plaintext_t *se_p = dj.decrypt(&c_3);
     int o = mpz_cmp(dj.get_pubkey()->n, dj_dum.get_pubkey()->n);
     char *aa = (char *)dj.decrypt(&c_3)->to_str();
 
