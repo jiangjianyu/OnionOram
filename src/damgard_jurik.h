@@ -15,6 +15,8 @@ typedef struct
     //Cache for n^j
     mpz_t *n_j;
     mpz_t *k_n;
+    mpz_t *nj_d_j;
+    mpz_t *nj1_d_j;
 } damgard_jurik_pubkey_t;
 
 
@@ -42,7 +44,8 @@ private:
     damgard_jurik_get_rand_t rand_func;
     void key_gen(int);
     void init_rand(gmp_randstate_t rand, int bytes);
-
+    void compute_cache();
+    void compute_exp(mpz_t *result, mpz_t *msg, unsigned long s);
 public:
 
     damgard_jurik_pubkey_t* get_pubkey() {return pubkey;}

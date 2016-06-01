@@ -21,7 +21,7 @@ int main (int argc, char **args) {
     damgard_jurik_ciphertext_t *text_1_c = dj.encrypt(&text_1, 8);
     damgard_jurik_ciphertext_t *text_2_c = dj.encrypt(&text_2, 8);
 //    damgard_jurik_plaintext_t text_3 = damgard_jurik_plaintext_t(buf, 1024);
-    damgard_jurik_plaintext_t sec_1 = damgard_jurik_plaintext_t((unsigned long)0);
+    damgard_jurik_plaintext_t sec_1 = damgard_jurik_plaintext_t((unsigned long)1);
     damgard_jurik_plaintext_t sec_2 = damgard_jurik_plaintext_t((unsigned long)0);
     damgard_jurik_ciphertext_t *c_1 = dj_dum.encrypt(&sec_1, 9);
     damgard_jurik_ciphertext_t *c_22 = dj_dum.encrypt(&sec_2, 9);

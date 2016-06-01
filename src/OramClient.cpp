@@ -254,9 +254,10 @@ int OramClient::read_path(int pos, int address, unsigned char data[], OramMeta *
 
 	int block_cipher_size = OramCrypto::get_crypto()->get_chunk_size(max_layer + 1)*OramBlock::chunk_count;
 	sock->standard_recv(ORAM_SOCKET_HEADER_SIZE + block_cipher_size);
+	OramBlock *recv_block = new OramBlock(sock->get_recv_buf(), max_layer + 1);
+	unsigned char *recv_data = (unsigned char *)recv_block->decrypt();
 	if (select_id != -1) {
-		OramBlock *recv_block = new OramBlock(sock->get_recv_buf(), max_layer + 1);
-		unsigned char *recv_data = (unsigned char *)recv_block->decrypt();
+
 		memcpy(data, recv_data, OramBlock::block_size);
 	} else {
 		//If no blocks are found, then create one

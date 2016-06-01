@@ -17,16 +17,16 @@ int main(int argc, char **args) {
         buf[0] = 0;
         block_list[0] = new OramBlock(buf);
         unsigned char *de_0 = (unsigned char*)block_list[0]->decrypt();
-        buf[0] = 0;
+        buf[0] = 1;
         block_list[1] = new OramBlock(buf);
         unsigned char *de_1 = (unsigned char*)block_list[1]->decrypt();
-        buf[0] = 0;
+        buf[0] = 2;
         block_list[2] = new OramBlock(buf);
         unsigned char *de_2 = (unsigned char*)block_list[2]->decrypt();
-        buf[0] = 0;
+        buf[0] = 3;
         block_list[3] = new OramBlock(buf);
         unsigned char *de_3 = (unsigned char*)block_list[3]->decrypt();
-        buf[0] = 0;
+        buf[0] = 4;
         block_list[4] = new OramBlock(buf);
         unsigned char *de_4 = (unsigned char*)block_list[4]->decrypt();
 

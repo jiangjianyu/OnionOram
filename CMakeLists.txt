@@ -9,10 +9,11 @@ add_executable(TestBlock src/OramBlock.cpp src/damgard_jurik.cpp src/OramCrypto.
 add_executable(TestEncrypt src/damgard_jurik.cpp test/TestEncrypt.cpp src/OramCrypto.cpp)
 add_executable(TestBucket src/damgard_jurik.cpp src/OramBlock.cpp src/OramBucket.cpp src/OramCrypto.cpp test/TestBucket.cpp)
 add_executable(TestSelector src/damgard_jurik.cpp src/OramBlock.cpp src/OramBucket.cpp src/OramCrypto.cpp src/OramSelector.cpp test/TestOramSelector.cpp)
+add_executable(TestCom src/damgard_jurik.cpp test/TestCompression.cpp)
 target_link_libraries(OnionOram sodium gmp)
 target_link_libraries(TestBlock sodium gmp)
 target_link_libraries(TestEncrypt sodium gmp)
 target_link_libraries(TestBucket sodium gmp)
 target_link_libraries(TestSelector sodium gmp)
-
+target_link_libraries(TestCom sodium gmp)
 set(LIBRARY_OUTPUT_PATH build/bin)
