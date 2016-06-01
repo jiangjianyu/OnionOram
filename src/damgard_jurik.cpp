@@ -372,12 +372,14 @@ damgard_jurik_plaintext_t* damgard_jurik::decrypt(damgard_jurik_ciphertext_t* ct
             mpz_mod(t3, pubkey->nj1_d_j[j], pubkey->n_j[i]);
             mpz_mul(t3, t3, t2);
             mpz_mod(t3, t3,pubkey->n_j[i]);
-            /*mpz_set(t3, pubkey->k_n[j]);
+            /*
+            mpz_set(t3, pubkey->k_n[j]);
             mpz_invert(t3, t3, pubkey->n_j[i]);
             mpz_mul(t3, t2, t3);
             mpz_mod(t3, t3, pubkey->n_j[i]);
             mpz_mul(t3, t3, pubkey->n_j[j - 1]);
-            mpz_mod(t3, t3, pubkey->n_j[i]);*/
+            mpz_mod(t3, t3, pubkey->n_j[i]);
+            */
             mpz_sub(t1, t1, t3);
             mpz_mod(t1, t1, pubkey->n_j[i]);
         }

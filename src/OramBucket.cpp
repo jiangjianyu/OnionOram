@@ -1,5 +1,6 @@
 #include "OramBucket.h"
 #include "OramCrypto.h"
+#include "OramBatchTask.h"
 #include <fcntl.h>
 #include <unistd.h>
 #include <cstring>
@@ -12,8 +13,15 @@ void OramBucket::init_size(int bucket_size) {
 
 OramBucket::OramBucket(){
 	bucket = (OramBlock **) new char[sizeof(OramBucket*)*bucket_size];
-	for (int i = 0; i < bucket_size; i++) {
+/*	for (int i = 0; i < bucket_size; i++) {
 		bucket[i] = new OramBlock();
+	}*/
+	OramBatchTask *task = OramBatchTask::new_task();
+	for (int i = 0;i < bucket_size;i++) {
+		task->new_job(ORAM_TASK_NEWBLOCK, NULL);
+	}
+	for (int i = 0;i < bucket_size;i++) {
+		bucket[i] = (OramBlock*)task->get_result(i);
 	}
 	this->encrypt_matadata = (unsigned char *) new char[sizeof(int) * bucket_size + ORAM_CRYPT_OVERSIZE];
 	this->layer = 1;

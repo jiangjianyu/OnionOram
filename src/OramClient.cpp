@@ -4,6 +4,7 @@
 #include "OramBucket.h"
 #include "OramSelector.h"
 #include "OramLogger.h"
+#include "OramBatchTask.h"
 
 #define max(a,b) ((a > b)?a:b)
 
@@ -58,6 +59,7 @@ OramClient::OramClient(char *host, int port ,int bucket_count, int block_per_buc
 	this->tree_depth = log(bucket_count)/log(2) + 1;
 	this->tree_leaf_count = (bucket_count + 1) / 2;
 	this->tree_leaf_start = bucket_count - tree_leaf_count;
+	OramBatchTask::init(4);
 }
 
 OramClient::~OramClient(){

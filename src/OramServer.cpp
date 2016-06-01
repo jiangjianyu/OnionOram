@@ -2,6 +2,7 @@
 #include "OramServer.h"
 #include "OramSelector.h"
 #include "OramLogger.h"
+#include "OramBatchTask.h"
 #include <cstring>
 
 #define max(a,b) ((a > b) ? a:b)
@@ -15,6 +16,7 @@ OramServer::OramServer(char *host, int port) {
 	this->port = port;
 	sock = new OramSocket(host, port, 1);
 	this->storage = NULL;
+	OramBatchTask::init(4);
 }
 
 OramServer::~OramServer()
