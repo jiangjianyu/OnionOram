@@ -17,7 +17,7 @@ typedef enum oram_socket_type {
 #define sizeof_write_bucket(size)
 #define sizeof_evict(size)
 #define sizeof_read_meta(size) (sizeof(int) * size + ORAM_CRYPT_OVERSIZE)
-#define ORAM_SOCKET_BUFFER_SIZE 102400
+#define ORAM_SOCKET_BUFFER_SIZE 409600
 typedef struct OramSocketHeader {
 	oram_socket_type socket_type;
 	/* Suggest a path or a bucket id*/
@@ -68,6 +68,8 @@ public:
 	OramSocket* accept_connection();
 	void* get_recv_buf() { return buf_r + ORAM_SOCKET_HEADER_SIZE; }
 	void* get_send_buf() { return buf_s + ORAM_SOCKET_HEADER_SIZE; }
+	void* get_raw_recv_buf() { return buf_r; }
+	void* get_raw_send_buf() { return buf_s; }
 	OramSocketHeader* get_recv_header() { return (OramSocketHeader*)buf_r; }
 	OramSocketHeader* get_send_header() { return (OramSocketHeader*)buf_s; }
 };

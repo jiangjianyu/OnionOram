@@ -11,6 +11,9 @@ OramSelector::OramSelector()
 
 OramSelector::~OramSelector()
 {
+	for (int i = 0;i < size;i++) {
+		delete(this->select_vector[i]);
+	}
 }
 
 OramSelector::OramSelector(int size, int select_id, int layer) {

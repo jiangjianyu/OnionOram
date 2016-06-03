@@ -20,7 +20,7 @@ int gen_reverse_lexicographic(int g, int oram_size, int tree_height) {
 }
 
 int pos_to_len(int pos) {
-	for (int pos_run = pos, i = 0;;(pos_run - 1) >> 1, i++) {
+	for (int pos_run = pos, i = 0;;pos_run = (pos_run - 1) >> 1, i++) {
 		if (pos_run == 0)
 			return i + 1;
 	}
@@ -152,42 +152,49 @@ int OramClient::evict_along_path(int pos) {
 	int right_detail[OramBucket::bucket_size];
 	OramMeta *meta_list = new OramMeta[len];
 	OramMeta **meta = get_metadata(pos, layer_list, true);
-	for (int pos_run = pos, i = len - 1;; (pos_run - 1) >> 1, i--) {
+	sock->get_send_header()->pos_id = pos;
+	sock->get_send_header()->len = len;
+	sock->get_send_header()->socket_type = ORAM_SOCKET_EVICT;
+	sock->get_send_header()->msg_len = 0;
+	sock->standard_send(ORAM_SOCKET_HEADER_SIZE);
+
+	OramSelector *selector;
+	for (int pos_run = pos, i = len - 1;; pos_run = (pos_run - 1) >> 1, i--) {
 		pos_list[i] = pos_run;
 		if (pos_run == 0)
 			break;
 	}
-	int addr, last_pos;
-	//m was used to count total selector
-	for (int i = 0, m = 0;i < len;i++) {
-		int pos_run = pos_list[i];
-		int g_left = 0, g_right = 0;
-		int select_id = 0;
+	int addr, last_pos, pos_run, g_left, g_right, select_id;
+	for (int i = 0;i < len - 1;i++) {
+		pos_run = pos_list[i];
+		g_left = 0;
+		g_right = 0;
+		select_id = 0;
+		last_pos = 0;
 		memset(left_list, 0, sizeof(int) * OramBucket::bucket_size);
 		memset(left_detail, 0, sizeof(int) * OramBucket::bucket_size);
 		memset(right_list, 0, sizeof(int) * OramBucket::bucket_size);
 		memset(right_detail, 0, sizeof(int) * OramBucket::bucket_size);
 		for (int j = 0;j < OramBucket::bucket_size;j++) {
-			addr = meta[len - i - 1]->address[j];
-			if (address_in_path(position_map[addr], pos_run >> 1 + 1)) {
-				left_list[g_left++] = select_id++;
-				left_detail[g_left - 1] = addr;
-			}
-			else {
-				right_list[g_right++] = select_id++;
-				right_detail[g_right - 1] = addr;
-			}
-			addr = meta[len - i - 2]->address[j];
-			if (address_in_path(position_map[addr], pos_run >> 1 + 1)) {
-				left_list[g_left++] = select_id++;
-				left_detail[g_left - 1] = addr;
-			} else {
-				right_list[g_right++] = select_id++;
-				right_detail[g_right - 1] = addr;
+			for (int t = 1;t <= 2;t++) {
+				addr = meta[len - i - t]->address[j];
+				if (addr < 0) {
+					continue;
+				}
+				else if (address_in_path(position_map[addr], (pos_run >> 1) + 1)) {
+					left_list[g_left] = select_id++;
+					left_detail[g_left++] = addr;
+				}
+				else {
+					right_list[g_right] = select_id++;
+					right_detail[g_right++] = addr;
+				}
 			}
 		}
-		//copy them to original
-		if (pos_list[i + 1] == pos_run >> 1 + 1) {
+
+		/* Copy meta to son bucket,
+		 * Copy sibling meta to return_list */
+		if (pos_list[i + 1] == (pos_run >> 1 + 1)) {
 			memcpy(meta[len - i - 2]->address, left_detail, sizeof(int) * OramBucket::bucket_size);
 			meta_list[i].address = new int[OramBucket::bucket_size];
 			memcpy(meta_list[i].address, right_detail, sizeof(int) * OramBucket::bucket_size);
@@ -196,29 +203,50 @@ int OramClient::evict_along_path(int pos) {
 			meta_list[i].address = new int[OramBucket::bucket_size];
 			memcpy(meta_list[i].address, left_detail, sizeof(int) * OramBucket::bucket_size);
 		}
+
+		/* Construct Selector */
 		int max_layer = max(layer_list[len - i - 1], layer_list[len - i - 2]);
 		for (int j = 0;j < OramBucket::bucket_size;j++) {
-			OramSelector *selector = new OramSelector(OramBucket::bucket_size*2, left_list[j], max_layer);
+			selector = new OramSelector(OramBucket::bucket_size*2, left_list[j], max_layer);
 			memcpy(sock->get_send_buf() + last_pos, selector->to_bytes(), selector->get_size());
 			last_pos += selector->get_size();
+			delete(selector);
 		}
 		for (int j = 0;j < OramBucket::bucket_size;j++) {
-			OramSelector *selector = new OramSelector(OramBucket::bucket_size*2, right_list[j], max_layer);
+			selector = new OramSelector(OramBucket::bucket_size*2, right_list[j], max_layer);
 			memcpy(sock->get_send_buf() + last_pos, selector->to_bytes(), selector->get_size());
 			last_pos += selector->get_size();
+			delete(selector);
 		}
+		sock->get_send_header()->msg_len = last_pos;
+		sock->standard_send(last_pos + ORAM_SOCKET_HEADER_SIZE);
+		log_all << "Send " << i << std::endl;
 	}
+
+	/* Copy metadata of the leaf of the path */
+	last_pos = 0;
 	meta_list[len - 1].address = new int[OramBucket::bucket_size];
 	memcpy(meta_list[len - 1].address, meta[len - 1]->address, OramBucket::bucket_size);
 	for (int i = 0;i < len;i++) {
+		meta_list[i].size = OramBucket::bucket_size;
 		OramCrypto::get_crypto()->encrypt_meta(meta_list[i], (unsigned char *)sock->get_send_buf() + last_pos);
 		last_pos += sizeof_read_meta(OramBucket::bucket_size);
 	}
-	sock->get_send_header()->pos_id = pos;
-	sock->get_send_header()->len = len;
-	sock->get_send_header()->socket_type = ORAM_SOCKET_EVICT;
+	OramMeta tmp_meta;
+	tmp_meta.size = OramBucket::bucket_size;
+	tmp_meta.address = new int[OramBucket::bucket_size];
+	for (int i = 0;i < OramBucket::bucket_size;i++) {
+		tmp_meta.address[i] = -1;
+	}
+
+	for (int i = 0;i < len - 1;i++) {
+		OramCrypto::get_crypto()->encrypt_meta(tmp_meta, (unsigned char *)sock->get_send_buf() + last_pos);
+		last_pos += sizeof_read_meta(OramBucket::bucket_size);
+	}
+
 	sock->get_send_header()->msg_len = last_pos;
 	sock->standard_send(ORAM_SOCKET_HEADER_SIZE + last_pos);
+	log_all << "Rewrite Meta " << std::endl;
 	return 1;
 }
 
@@ -259,10 +287,11 @@ int OramClient::read_path(int pos, int address, unsigned char data[], OramMeta *
 	OramBlock *recv_block = new OramBlock(sock->get_recv_buf(), max_layer + 1);
 	unsigned char *recv_data = (unsigned char *)recv_block->decrypt();
 	if (select_id != -1) {
-
+		log_detail << "access " << address << " from server\n";
 		memcpy(data, recv_data, OramBlock::block_size);
 	} else {
 		//If no blocks are found, then create one
+		log_detail << "access " << address << " from NEW\n";
 		memset(data, 0, OramBlock::block_size);
 	}
 	return 0;

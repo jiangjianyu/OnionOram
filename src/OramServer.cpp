@@ -53,7 +53,7 @@ void OramServer::run() {
 					r_init(sock_client);
 					break;
 				case ORAM_SOCKET_WRITEBLOCK:
-					r_write_block(sock);
+					r_write_block(sock_client);
 					break;
 				default:
 					break;
@@ -179,29 +179,32 @@ void OramServer::r_evict_path(OramSocket* sock) {
 	OramBlock **block_list = (OramBlock**) new char[sizeof(OramBlock*)*size];
 	OramBucket *bkt, *bkt_left, *bkt_right, *bkt_next;
 	OramSelector *selector;
-	int last = 0;
 	int selector_size = 0;
 	int sibing_list[sock->get_recv_header()->len];
-	for (int pos_run = pos, i = sock->get_recv_header()->len - 1;; (pos_run - 1) >> 1, i--) {
+	for (int pos_run = pos, i = sock->get_recv_header()->len - 1;; pos_run = (pos_run - 1) >> 1, i--) {
 		pos_array[i] = pos_run;
 		if (pos_run == 0)
 			break;
 	}
 	for (int i = 0, k = 0, s = 0; i < sock->get_recv_header()->len - 1; i++) {
+		int last = 0;
 		bkt = storage->get_bucket(pos_array[i]);
 		bkt_left = storage->get_bucket(pos_array[i] >> 1 + 1);
 		bkt_right = storage->get_bucket(pos_array[i] >> 1 + 2);
 		bkt_next = storage->get_bucket(pos_array[i + 1]);
 		if (pos_array[i] >> 1 + 1 == pos_array[i + 1]) {
-			sibing_list[s++] = pos_array[i] >> 1 + 2;
+			sibing_list[s++] = (pos_array[i] >> 1) + 2;
 		} else {
-			sibing_list[s++] = pos_array[i] >> 1 + 1;
+			sibing_list[s++] = (pos_array[i] >> 1) + 1;
 		}
-		for (int j = 0; i < OramBucket::bucket_size; j++) {
+		for (int j = 0; j < OramBucket::bucket_size; j++) {
 			block_list[k++] = bkt->bucket[j];
 			block_list[k++] = bkt_next->bucket[j];
 		}
 		selector_size = OramCrypto::get_crypto()->get_chunk_size(max(bkt->layer, bkt_next->layer) + 1) * size;
+		sock->standard_recv(ORAM_SOCKET_HEADER_SIZE);
+		sock->recv_continue(sock->get_recv_header()->msg_len);
+		log_all << "Evict " << pos_array[i] << std::endl;
 		for (int j = 0; j < OramBucket::bucket_size; j++, last += selector_size) {
 			selector = new OramSelector(size, (unsigned char *)sock->get_recv_buf() + last, sock->get_recv_header()->layer);
 			bkt_left->bucket[j] = selector->select(block_list);
@@ -211,13 +214,25 @@ void OramServer::r_evict_path(OramSocket* sock) {
 			bkt_right->bucket[j] = selector->select(block_list);
 		}
 	}
+
 	//Rewrite metadata
+	int last = 0;
+	sock->standard_recv(ORAM_SOCKET_HEADER_SIZE);
+	sock->recv_continue(sock->get_recv_header()->msg_len);
+	log_all << "Rewrite Metadata" << std::endl;
 	sibing_list[sock->get_recv_header()->len - 1] = pos_array[sock->get_recv_header()->len - 1];
 	for (int i = 0;i < sock->get_recv_header()->len;i++) {
 		memcpy(storage->get_bucket(sibing_list[i])->encrypt_matadata,
 			   sock->get_recv_buf() + last + i * sizeof_read_meta(OramBucket::bucket_size),
-			   OramBucket::bucket_size);
+			   sizeof_read_meta(OramBucket::bucket_size));
 	}
+	last += sock->get_recv_header()->len * sizeof_read_meta(OramBucket::bucket_size);
+	for (int i = 0;i < sock->get_recv_header()->len - 1;i++) {
+		memcpy(storage->get_bucket(pos_array[i])->encrypt_matadata,
+			   sock->get_recv_buf() + last + i * sizeof_read_meta(OramBucket::bucket_size),
+			   sizeof_read_meta(OramBucket::bucket_size));
+	}
+
 	storage->cnt_0 = 0;
 }
 
@@ -225,7 +240,8 @@ void OramServer::r_write_block(OramSocket* sock) {
 	log_detail << "REQUEST >> WRITEBACK" << std::endl;
 	OramBlock *new_block = new OramBlock(sock->get_recv_buf(), 1);
 	storage->get_bucket(0)->bucket[storage->cnt_0++] = new_block;
+	unsigned char *aa = (unsigned char *)sock->get_recv_buf() + new_block->size();
 	memcpy(storage->get_bucket(0)->encrypt_matadata,
 		   sock->get_recv_buf() + new_block->size(),
-		   sizeof(int) * OramBucket::bucket_size);
+		   sizeof_read_meta(OramBucket::bucket_size));
 }
